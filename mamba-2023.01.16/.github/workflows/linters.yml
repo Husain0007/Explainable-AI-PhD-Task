@@ -1,0 +1,35 @@
+name: Linters (Python, C++)
+
+on:
+  push:
+   branches:
+     - main
+  pull_request:
+    branches:
+     - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install pre-commit
+      uses: mamba-org/provision-with-micromamba@main
+      with:
+        environment-file: false
+        environment-name: linters
+        channels: conda-forge
+        extra-specs: pre-commit
+    - name: Micromamba info
+      shell: bash -el {0}
+      run: |
+        micromamba info
+        micromamba list
+    - name: Run all linters
+      shell: bash -el {0}
+      run: |
+        pre-commit run --all-files --verbose --show-diff-on-failure

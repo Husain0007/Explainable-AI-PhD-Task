@@ -1,0 +1,24 @@
+if [ -n "${ZSH_VERSION:+x}" ]; then
+  if ! command -v compinit > /dev/null; then
+    autoload -U +X compinit && if [[ "${ZSH_DISABLE_COMPFIX-}" = true ]]; then
+      compinit -u
+    else
+      compinit
+    fi
+  fi
+  autoload -U +X bashcompinit && bashcompinit
+
+  _umamba_zsh_completions()
+  {
+    COMPREPLY=($(__mamba_exe completer "${(@s: :)${(@s: :)COMP_LINE}:1}"))
+  }
+
+  complete -o default -F _umamba_zsh_completions micromamba
+fi
+if [ -n "${BASH_VERSION:+x}" ]; then
+  _umamba_bash_completions()
+  {
+    COMPREPLY=($(__mamba_exe completer "${COMP_WORDS[@]:1}"))
+  }
+  complete -o default -F _umamba_bash_completions micromamba
+fi

@@ -1,0 +1,204 @@
+#include <csignal>
+#include <exception>
+#include <thread>
+
+#include <spdlog/spdlog.h>
+#include <fmt/color.h>
+#include <reproc++/run.hpp>
+#include <nlohmann/json.hpp>
+
+#include "mamba/api/configuration.hpp"
+#include "mamba/api/install.hpp"
+#include "mamba/core/util_os.hpp"
+#include "mamba/core/util_random.hpp"
+#include "mamba/core/execution.hpp"
+#include "mamba/core/error_handling.hpp"
+
+#include "common_options.hpp"
+
+#ifndef _WIN32
+extern "C"
+{
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+}
+#else
+#include <process.h>
+#endif
+
+#include "mamba/core/run.hpp"
+
+using namespace mamba;  // NOLINT(build/namespaces)
+
+
+void
+set_ps_command(CLI::App* subcom)
+{
+    auto list_subcom = subcom->add_subcommand("list");
+
+    auto list_callback = []()
+    {
+        nlohmann::json info;
+        if (fs::is_directory(proc_dir()))
+        {
+            auto proc_dir_lock = lock_proc_dir();
+            info = get_all_running_processes_info();
+        }
+        if (info.empty())
+        {
+            std::cout << "No running processes" << std::endl;
+        }
+        printers::Table table({ "PID", "Name", "Prefix", "Command" });
+        table.set_padding({ 2, 4, 4, 4 });
+        for (auto& el : info)
+        {
+            auto prefix = el["prefix"].get<std::string>();
+            if (!prefix.empty())
+                prefix = env_name(prefix);
+
+            table.add_row({ el["pid"].get<std::string>(),
+                            el["name"].get<std::string>(),
+                            prefix,
+                            join(" ", el["command"].get<std::vector<std::string>>()) });
+        }
+
+        table.print(std::cout);
+    };
+
+    // ps is an alias for `ps list`
+    list_subcom->callback(list_callback);
+    subcom->callback(
+        [subcom, list_subcom, list_callback]()
+        {
+            if (!subcom->got_subcommand(list_subcom))
+                list_callback();
+        });
+
+
+    auto stop_subcom = subcom->add_subcommand("stop");
+    static std::string pid_or_name;
+    stop_subcom->add_option("pid_or_name", pid_or_name, "Process ID or process name (label)");
+    stop_subcom->callback(
+        []()
+        {
+            auto filter = [](const nlohmann::json& j) -> bool
+            { return j["name"] == pid_or_name || j["pid"] == pid_or_name; };
+            nlohmann::json procs;
+            if (fs::is_directory(proc_dir()))
+            {
+                auto proc_dir_lock = lock_proc_dir();
+                procs = get_all_running_processes_info(filter);
+            }
+
+#ifndef _WIN32
+            auto stop_process = [](const std::string& name, PID pid)
+            {
+                std::cout << fmt::format("Stopping {} [{}]", name, pid) << std::endl;
+                kill(pid, SIGTERM);
+            };
+#else
+            auto stop_process = [](const std::string& /*name*/, PID /*pid*/)
+            { LOG_ERROR << "Process stopping not yet implemented on Windows."; };
+#endif
+            for (auto& p : procs)
+            {
+                PID pid = std::stoull(p["pid"].get<std::string>());
+                stop_process(p["name"], pid);
+            }
+            if (procs.empty())
+            {
+                Console::instance().print("Did not find any matching process.");
+                return -1;
+            }
+            return 0;
+        });
+}
+
+void
+set_run_command(CLI::App* subcom)
+{
+    init_prefix_options(subcom);
+
+    static std::string streams;
+    CLI::Option* stream_option
+        = subcom
+              ->add_option(
+                  "-a,--attach",
+                  streams,
+                  "Attach to stdin, stdout and/or stderr. -a \"\" for disabling stream redirection")
+              ->join(',');
+
+    static std::string cwd;
+    subcom->add_option(
+        "--cwd", cwd, "Current working directory for command to run in. Defaults to cwd");
+
+    static bool detach = false;
+#ifndef _WIN32
+    subcom->add_flag("-d,--detach", detach, "Detach process from terminal");
+#endif
+
+    static bool clean_env = false;
+    subcom->add_flag("--clean-env", clean_env, "Start with a clean environment");
+
+    static std::vector<std::string> env_vars;
+    subcom->add_option("-e,--env", env_vars, "Add env vars with -e ENVVAR or -e ENVVAR=VALUE")
+        ->allow_extra_args(false);
+
+    static std::string specific_process_name;
+#ifndef _WIN32
+    subcom->add_option(
+        "--label",
+        specific_process_name,
+        "Specifies the name of the process. If not set, a unique name will be generated derived from the executable name if possible.");
+#endif
+
+    subcom->prefix_command();
+
+    static reproc::process proc;
+
+    subcom->callback(
+        [subcom, stream_option]()
+        {
+            auto& config = Configuration::instance();
+            config.at("show_banner").set_value(false);
+            config.load();
+
+            std::vector<std::string> command = subcom->remaining();
+            if (command.empty())
+            {
+                LOG_ERROR << "Did not receive any command to run inside environment";
+                exit(1);
+            }
+
+            // create a copy before inserting additional things
+            std::vector<std::string> raw_command = command;
+
+        // replace the wrapping bash with new process entirely
+#ifndef _WIN32
+            if (command.front() != "exec")
+                command.insert(command.begin(), "exec");
+#endif
+
+            bool all_streams = stream_option->count() == 0u;
+            bool sinkout = !all_streams && streams.find("stdout") == std::string::npos;
+            bool sinkerr = !all_streams && streams.find("stderr") == std::string::npos;
+            bool sinkin = !all_streams && streams.find("stdin") == std::string::npos;
+
+            int stream_options = 0;
+            if (!all_streams)
+            {
+                stream_options = (sinkout ? 0 : (int) STREAM_OPTIONS::SINKOUT);
+                stream_options |= (sinkerr ? 0 : (int) STREAM_OPTIONS::SINKERR);
+                stream_options |= (sinkin ? 0 : (int) STREAM_OPTIONS::SINKIN);
+            }
+
+            int exit_code = mamba::run_in_environment(
+                command, cwd, stream_options, clean_env, detach, env_vars, specific_process_name);
+
+            exit(exit_code);
+        });
+}
