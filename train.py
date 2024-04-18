@@ -9,8 +9,8 @@ import numpy as np
 from sklearn.metrics import accuracy_score
 
 # Load CORA dataset
-cora_cites = pd.read_csv('cora.cites', sep="\t", header=None, names=["target", "source"])
-cora_content = pd.read_csv('cora.content', sep="\t", header=None, names=["id", *["w"+str(i) for i in range(1433)], "subject"])
+cora_cites = pd.read_csv('./cora/cora.cites', sep="\t", header=None, names=["target", "source"])
+cora_content = pd.read_csv('./cora/cora.content', sep="\t", header=None, names=["id", *["w"+str(i) for i in range(1433)], "subject"])
 
 # Set index and split data
 cora_content = cora_content.set_index("id")

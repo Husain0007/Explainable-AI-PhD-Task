@@ -9,8 +9,8 @@ from sklearn import preprocessing
 
 
 # Load CORA dataset
-cora_cites = pd.read_csv('cora.cites', sep="\t", header=None, names=["target", "source"])
-cora_content = pd.read_csv('cora.content', sep="\t", header=None, names=["id", *["w"+str(i) for i in range(1433)], "subject"])
+cora_cites = pd.read_csv('./cora/cora.cites', sep="\t", header=None, names=["target", "source"])
+cora_content = pd.read_csv('./cora/cora.content', sep="\t", header=None, names=["id", *["w"+str(i) for i in range(1433)], "subject"])
 
 # Set index and split data
 cora_content = cora_content.set_index("id")
@@ -37,7 +37,7 @@ node_predictions = target_encoding.inverse_transform(all_predictions.squeeze())
 
 # Calculate overall accuracy
 overall_accuracy = accuracy_score(cora_subject, node_predictions)
-print("Overall accuracy on all predictions: ", overall_accuracy)
+print("Overall accuracy on all predictions: ", overall_accuracy*100)
 
 # Store predictions in a DataFrame
 predictions_df = pd.DataFrame({"paper_id": cora_content.index, "class_label": node_predictions})

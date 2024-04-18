@@ -1,5 +1,7 @@
 # CORA Dataset Node Classification Task
 
+<p>In this project I developed a Node Classifier for the CORA dataset consisting of 2708 scientific publications. To prepare the </p>
+
 ## Tasks
 - [x] Load the data.
 - [x] Split the data using 10-fold cross validation.
@@ -13,7 +15,7 @@
 * Conda == 22.11.1 ([Installion Link](https://anaconda.org/anaconda/conda/files?version=22.11.1&page=1)) **or** Mamba == 1.2.0 ([Installtion Link](https://github.com/mamba-org/mamba/releases/tag/2023.01.16)).
 
 
-## Set Up
+## Set Up & Model Verification
 
 * To evaluate the performance of the`final_model.bin` using the `check.py` script first the required conda/mamba virtual environment should be created and activated.
 * To create the virtual environment execute the below command.
@@ -34,4 +36,6 @@
 ```
 
 *  *  *
+
+
 
