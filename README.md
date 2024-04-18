@@ -1,14 +1,20 @@
-# CORA Dataset Node Classification Task
+# CORA Dataset Node Classification
 
-<p>In this project I developed a Node Classifier for the CORA dataset consisting of 2708 scientific publications. To prepare the </p>
+In this project I developed a Node Classifier for the CORA dataset consisting of 2708 scientific publications. To prepare the graph data from the `./cora/cora.cites` & `./cora/coar.content` files I have utilized the [StellarGraph](https://stellargraph.readthedocs.io/en/stable/README.html) library. The overall process to prepare the data & train the classifier are expande upon under [Process Overview](#process-overview). 
 
-## Tasks
+## Tasks Completed
+The following tasks have been completed over the couse of this project.  
 - [x] Load the data.
 - [x] Split the data using 10-fold cross validation.
 - [x] Develop a Machine Learning approach to learn and predict the subjects of papers.
 - [x] Store predictions in a [TSV file](./inference_predictions.tsv).
 - [x] Evaluate approach in terms of **accuracy**.
+*  *  *
 
+## Results
+
+![Recall Result](./visualization/recall_bargraph.png)
+*  *  *
 ## System Requirements
 
 * Ubuntu 20.04.5 LTS
@@ -36,6 +42,8 @@
 ```
 
 *  *  *
+
+## Process-Overview
 
 
 
