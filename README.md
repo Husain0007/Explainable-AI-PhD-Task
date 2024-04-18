@@ -1,6 +1,6 @@
 # CORA Dataset Node Classification
 
-In this project I developed a Node Classifier for the CORA dataset consisting of 2708 scientific publications. To prepare the graph data from the `./cora/cora.cites` & `./cora/cora.content` files I have utilized the [StellarGraph](https://stellargraph.readthedocs.io/en/stable/README.html) library. The overall process to prepare the data & train the classifier are expande upon under [Process Overview](#process-overview). 
+In this project I developed a Node Classifier for the CORA dataset consisting of 2708 scientific publications. To prepare the graph data from the `./cora/cora.cites` & `./cora/cora.content` files I have utilized the [StellarGraph](https://stellargraph.readthedocs.io/en/stable/README.html) library. The overall process for preparing the data & training the classifier is expanded upon under [Process Overview](#process-overview). 
 *  *  *
 ## Tasks Completed
 The following tasks have been completed over the couse of this project.  
@@ -91,3 +91,42 @@ The steps outlined below originate from the [`train.py`](./train.py) script.
                [0, 0, 1, ..., 0, 0, 0]])
     ``` 
 ### Model configuration
+* By utilizing the `FullBatchNodeGenerator` with the `method='gcn'` argument we are able to process the graph structure and node features into a format that can be fed to the Keras model for training and predictions.
+* Next we define the gcn layer of our machine learning model by specifying: 
+    *   The `layer_sizes` i.e.; the number of hidden GCN layers and their sizes. In this case, two GCN layers of 16 units are used.
+    *   The `activations` applied to each GCN layer's output in this case are `RelU` for both layers.
+    *   The `dropout` rate for each GCN layer is set to 50%.
+
+* To expose the output of the GCN later for prediction we utilize the `gcn.in_out_tensors()` method. The `x_out` tensor is then passed to a dense layer using a softmax activation. The activation function ensures final output for each node will be a vector of probabilities. The prediceted class is the element in the vector with the highest value.
+    ```
+        generator = FullBatchNodeGenerator(cora_no_subject, method="gcn")
+        gcn = GCN(layer_sizes=[16, 16], activations=["relu", "relu"], generator=generator, dropout=0.5)
+        x_inp, x_out = gcn.in_out_tensors()
+        predictions = layers.Dense(units=cora_targets.shape[1], activation="softmax")(x_out)
+    ```
+
+### Training & Evaluating 
+* The Keras model is created with the input tensors `x_inp` and output tensors being `predictions` from the dense layer. For the task for categorical prediction we utilize the `categorical_crossentropy` loss.  
+* Next we establish a 10 fold `StratifiedKFold` training scheme to ensure an equal distribution of all the 7 subject types in each fold. Each fold is visited once every $10^{th}$ Epoch.
+* With each epoch we generate `train_gen` and `val_gen` objects using a set of nodes and their true labels corresponding to the `train_indices` and `val_indices` determined by the `StartifiedKFold` instance.
+
+    ```
+       model = Model(inputs=x_inp, outputs=predictions)
+        model.compile(optimizer=optimizers.Adam(lr=0.01), loss=losses.categorical_crossentropy, metrics=["acc"]) 
+        
+        folds = 10
+        skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
+        
+        for epoch in range(200):
+            train_indices, val_indices = next(skf.split(cora_content_no_subject, cora_subject))
+            ...
+            train_gen = generator.flow(train_subject.index, train_target)
+            val_gen = generator.flow(val_subject.index, val_target)
+            history = model.fit(train_gen, epochs=1, validation_data=val_gen, verbose=2)
+            ...
+        model.save("final_model")        
+    ```
+
+
+### Making predictions with the model
+* The model trained for 200 Epochs using a 10-fold cross validation scheme is saved under the [`final_model`](./final_model/) folder. It is subsequently utilized in the [`check.py`](./check.py) script to obtain predictions on all the nodes. The results are then stored in the [`inference_predictions.tsv`](./inference_predictions.tsv) file.

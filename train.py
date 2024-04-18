@@ -12,7 +12,6 @@ from sklearn.metrics import accuracy_score
 cora_cites = pd.read_csv('./cora/cora.cites', sep="\t", header=None, names=["target", "source"])
 cora_content = pd.read_csv('./cora/cora.content', sep="\t", header=None, names=["id", *["w"+str(i) for i in range(1433)], "subject"])
 
-# Set index and split data
 cora_content = cora_content.set_index("id")
 cora_subject = cora_content["subject"]
 
