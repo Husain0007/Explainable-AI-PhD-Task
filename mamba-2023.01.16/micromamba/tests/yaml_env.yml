@@ -1,6 +1,0 @@
-name: yaml_testenv
-channels:
-  - conda-forge
-dependencies:
-  - xtensor
-  - xsimd

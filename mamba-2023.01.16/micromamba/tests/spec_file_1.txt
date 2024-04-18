@@ -1,2 +1,0 @@
-xtensor >=0.20
-xsimd
