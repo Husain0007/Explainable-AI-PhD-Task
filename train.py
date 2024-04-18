@@ -16,11 +16,11 @@ cora_content = pd.read_csv('./cora/cora.content', sep="\t", header=None, names=[
 cora_content = cora_content.set_index("id")
 cora_subject = cora_content["subject"]
 
+cora_content_no_subject = cora_content.drop(columns="subject")
+
 # Prepare targets
 target_encoding = preprocessing.LabelBinarizer()
 cora_targets = target_encoding.fit_transform(cora_subject)
-
-cora_content_no_subject = cora_content.drop(columns="subject")
 
 cora_no_subject = sg.StellarGraph({"paper": cora_content_no_subject}, {"cites": cora_cites})
 
@@ -76,24 +76,5 @@ for epoch in range(200):
 
 print("Mean validation accuracy: ", np.mean(accuracies))
 
-# Get predictions for all papers
-all_gen = generator.flow(cora_content.index)
-all_predictions = model.predict(all_gen)
-
-# Inverse transform converts back the Softmax output to the label values
-node_predictions = target_encoding.inverse_transform(all_predictions.squeeze())
-
-# Ensure that the number of predictions matches the length of cora_content.index
-if len(node_predictions) != len(cora_content.index):
-    raise ValueError("Number of predictions does not match the length of cora_content.index")
-
-# Store predictions in a DataFrame
-predictions_df = pd.DataFrame({"paper_id": cora_content.index, "class_label": node_predictions})
-
-# Save predictions to file
-predictions_df.to_csv("predictions.tsv", sep="\t", index=False)
-
-print("Overall accuracy on all predictions: ", accuracy_score(cora_subject, node_predictions))
-
 print("Saving the final model as final_model.bin")
-model.save("final_model.bin")
+model.save("final_model")
