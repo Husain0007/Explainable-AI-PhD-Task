@@ -97,7 +97,7 @@ The steps outlined below originate from the [`train.py`](./train.py) script.
     *   The `activations` applied to each GCN layer's output in this case are `RelU` for both layers.
     *   The `dropout` rate for each GCN layer is set to 50%.
 
-* To expose the output of the GCN later for prediction we utilize the `gcn.in_out_tensors()` method. The `x_out` tensor is then passed to a dense layer using a softmax activation. The activation function ensures final output for each node will be a vector of probabilities. The prediceted class is the element in the vector with the highest value.
+* To expose the output of the GCN layer for prediction we utilize the `gcn.in_out_tensors()` method. The `x_out` tensor is then passed to a dense layer using a softmax activation. The activation function ensures final output for each node will be a vector of probabilities. The prediceted class is the element in the vector with the highest value.
     ```
         generator = FullBatchNodeGenerator(cora_no_subject, method="gcn")
         gcn = GCN(layer_sizes=[16, 16], activations=["relu", "relu"], generator=generator, dropout=0.5)
